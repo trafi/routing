@@ -36,7 +36,7 @@ namespace Itinero.Algorithms.Search.Hilbert
         /// <summary>
         /// Holds the default hilbert steps.
         /// </summary>
-        public static int DefaultHilbertSteps = (int)System.Math.Pow(2, 15);
+        public static int DefaultHilbertSteps = 1 << 19;
 
         /// <summary>
         /// Copies all data from the given graph.
