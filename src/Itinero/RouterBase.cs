@@ -170,6 +170,13 @@ namespace Itinero
             ISet<int> invalidSources, ISet<int> invalidTargets, RoutingSettings<T> settings, CancellationToken cancellationToken) where T : struct;
 
         /// <summary>
+        /// Calculates weight for each target between best source and that target.
+        /// </summary>
+        /// <returns></returns>
+        public abstract Result<T[]> TryCalculateWeightMultisource<T>(IProfileInstance profile, WeightHandler<T> weightHandler, RouterPoint[] sources, RouterPoint[] targets,
+            RoutingSettings<T> settings, CancellationToken cancellationToken) where T : struct;
+            
+        /// <summary>
         /// Builds a route based on a raw path.
         /// </summary>
         public Result<Route> BuildRoute<T>(IProfileInstance profile, WeightHandler<T> weightHandler, RouterPoint source, RouterPoint target, EdgePath<T> path) where T : struct

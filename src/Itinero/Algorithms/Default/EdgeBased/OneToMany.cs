@@ -20,6 +20,7 @@ using Itinero.Algorithms.Weights;
 using Itinero.Profiles;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 
 namespace Itinero.Algorithms.Default.EdgeBased
@@ -31,7 +32,7 @@ namespace Itinero.Algorithms.Default.EdgeBased
         where T : struct
     {
         private readonly RouterDb _routerDb;
-        private readonly RouterPoint _source;
+        private readonly IList<RouterPoint> _sources;
         private readonly IList<RouterPoint> _targets;
         private readonly WeightHandler<T> _weightHandler;
         private readonly T _maxSearch;
@@ -41,15 +42,23 @@ namespace Itinero.Algorithms.Default.EdgeBased
         /// Creates a new algorithm.
         /// </summary>
         public OneToMany(RouterDb routerDb, WeightHandler<T> weightHandler, Func<uint, IEnumerable<uint[]>> getRestrictions,
-            RouterPoint source, IList<RouterPoint> targets, T maxSearch)
+            IList<RouterPoint> sources, IList<RouterPoint> targets, T maxSearch)
         {
             _routerDb = routerDb;
             _weightHandler = weightHandler;
-            _source = source;
+            _sources = sources;
             _targets = targets;
             _maxSearch = maxSearch;
             _getRestrictions = getRestrictions;
         }
+
+        /// <summary>
+        /// Creates a new algorithm.
+        /// </summary>
+        public OneToMany(RouterDb routerDb, WeightHandler<T> weightHandler, Func<uint, IEnumerable<uint[]>> getRestrictions,
+            RouterPoint source, IList<RouterPoint> targets, T maxSearch)
+            : this(routerDb, weightHandler, getRestrictions, new List<RouterPoint>() { source }, targets, maxSearch)
+        { }
 
         private EdgePath<T>[] _best;
 
@@ -61,7 +70,7 @@ namespace Itinero.Algorithms.Default.EdgeBased
             _best = new EdgePath<T>[_targets.Count];
 
             // register the targets and determine one-edge-paths.
-            var sourcePaths = _source.ToEdgePaths(_routerDb, _weightHandler, true);
+            var sourcePaths = _sources.SelectMany(s => s.ToEdgePaths(_routerDb, _weightHandler, true)).ToArray();
             var targetIndexesPerEdge = new Dictionary<uint, LinkedTarget>();
             var targetPaths = new IEnumerable<EdgePath<T>>[_targets.Count];
             for (var i = 0; i < _targets.Count; i++)
@@ -70,9 +79,14 @@ namespace Itinero.Algorithms.Default.EdgeBased
                 targetPaths[i] = targets;
 
                 // determine one-edge-paths.
-                if (_source.EdgeId == _targets[i].EdgeId)
-                { // on same edge.
-                    _best[i] = _source.EdgePathTo(_routerDb, _weightHandler, _targets[i]);
+                foreach (var source in _sources)
+                {
+                    if (source.EdgeId == _targets[i].EdgeId)
+                    {
+                        var path = source.EdgePathTo(_routerDb, _weightHandler, _targets[i]);
+                        if (_best[i] == null || _weightHandler.IsSmallerThan(path.Weight, _best[i].Weight))
+                            _best[i] = path;
+                    }
                 }
 
                 // register targets.

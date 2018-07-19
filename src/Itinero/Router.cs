@@ -1243,6 +1243,69 @@ namespace Itinero
                 return new Result<T[][]>(ex.Message, (m) => ex);
             }
         }
+        
+        /// <summary>
+        /// Calculates weight for each target between best source and that target.
+        /// </summary>
+        /// <returns></returns>
+        public sealed override Result<T[]> TryCalculateWeightMultisource<T>(IProfileInstance profileInstance, WeightHandler<T> weightHandler, RouterPoint[] sources, RouterPoint[] targets,
+            RoutingSettings<T> settings, CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (!_db.Supports(profileInstance.Profile))
+                {
+                    return new Result<T[]>("Routing profile is not supported.", (message) =>
+                    {
+                        return new Exception(message);
+                    });
+                }
+
+                var maxSearch = weightHandler.Infinite;
+                if (settings != null)
+                {
+                    if (!settings.TryGetMaxSearch(profileInstance.Profile.FullName, out maxSearch))
+                    {
+                        maxSearch = weightHandler.Infinite;
+                    }
+                }
+                
+                T[] weights = null;
+                // always use regular graph.
+                if (_db.HasComplexRestrictions(profileInstance.Profile))
+                {
+                    var algorithm = new Itinero.Algorithms.Default.EdgeBased.OneToMany<T>(Db, weightHandler, _db.GetGetRestrictions(profileInstance.Profile, true), sources, targets, maxSearch);
+                    algorithm.Run(cancellationToken);
+                    if (!algorithm.HasSucceeded)
+                    {
+                        return new Result<T[]>(algorithm.ErrorMessage, (message) =>
+                        {
+                            return new RouteNotFoundException(message);
+                        });
+                    }
+                    weights = algorithm.Weights;
+                }
+                else
+                {
+                    var algorithm = new Itinero.Algorithms.Default.OneToMany<T>(_db, weightHandler, sources, targets, maxSearch);
+                    algorithm.Run(cancellationToken);
+                    if (!algorithm.HasSucceeded)
+                    {
+                        return new Result<T[]>(algorithm.ErrorMessage, (message) =>
+                        {
+                            return new RouteNotFoundException(message);
+                        });
+                    }
+                    weights = algorithm.Weights;
+                }
+                
+                return new Result<T[]>(weights);
+            }
+            catch (Exception ex)
+            {
+                return new Result<T[]>(ex.Message, (m) => ex);
+            }
+        }
 
         /// <summary>
         /// Builds a route.
